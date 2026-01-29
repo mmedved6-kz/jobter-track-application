@@ -1,0 +1,72 @@
+# .NET / C#
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# NuGet
+.nuget/
+packages/
+*.nupkg
+*.snupkg
+*.lock.json
+
+# Visual Studio cache/options
+.vscode/
+.vs/
+*.Code-Workspace
+
+# Node / npm / Angular
+node_modules/
+dist/
+.angular/
+.npm
+.eslintcache
+npm-debug.log
+yarn-error.log
+yarn-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+.DS_Store
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Miscellaneous
+.vs/
+.vscode/
+*.rar
+.AppleDouble
+.LSOverride
