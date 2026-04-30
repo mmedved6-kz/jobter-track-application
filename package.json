@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:auth:unit": "tsx scripts/auth-unit-test.ts",
-    "test:auth:api": "tsx scripts/auth-api-smoke.ts"
+    "test:auth:api": "tsx scripts/auth-api-smoke.ts",
+    "test:applications:api": "tsx scripts/application-crud-smoke.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
