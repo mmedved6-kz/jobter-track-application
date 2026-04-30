@@ -1,8 +1,17 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import { cookies } from "next/headers";
 
 const SESSION_COOKIE_NAME = "jobter_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
+
+// Validate AUTH_SECRET is set in production
+if (process.env.NODE_ENV === "production" && !process.env.AUTH_SECRET) {
+    throw new Error(
+        "AUTH_SECRET environment variable is required in production. " +
+        "Set it to a strong, random string (e.g., openssl rand -base64 32)"
+    );
+}
+
 const SESSION_SECRET = process.env.AUTH_SECRET ?? process.env.SESSION_SECRET ?? "jobter-dev-session-secret";
 
 type SessionPayload = {
