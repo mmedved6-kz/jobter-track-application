@@ -10,8 +10,8 @@ export type JobApplicationListQuery = {
 };
 
 export type JobApplicationCreateInput = {
-    company: string;
-    role: string;
+    company?: string;
+    role?: string;
     location?: string | null;
     jobUrl?: string | null;
     status?: ApplicationStatus;
@@ -33,9 +33,15 @@ export type ValidationResult<T> =
     | { ok: true; data: T }
     | { ok: false; errors: string[] };
 
-function normalizeText(value: string): string {
-    return value.trim();
-}
+const listQueryDefaults = {
+    page: 1,
+    pageSize: 10,
+} as const;
+
+const listQueryLimits = {
+    pageSizeMax: 100,
+    searchMaxLength: 120,
+} as const;
 
 function normalizeOptionalText(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -46,17 +52,24 @@ function normalizeOptionalText(value: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
 }
 
-function validateRequiredText(value: unknown, label: string, maxLength: number): string | null {
+function normalizeLooseText(value: unknown): string {
     if (typeof value !== "string") {
-        return `${label} is required.`;
+        return "";
     }
 
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return `${label} is required.`;
+    return value.trim();
+}
+
+function validateLooseText(value: unknown, label: string, maxLength: number): string | null {
+    if (value === undefined) {
+        return null;
     }
 
-    if (trimmed.length > maxLength) {
+    if (typeof value !== "string") {
+        return `${label} must be a string.`;
+    }
+
+    if (value.trim().length > maxLength) {
         return `${label} must be ${maxLength} characters or fewer.`;
     }
 
@@ -111,7 +124,7 @@ function validateUrl(value: unknown): string | null {
 
 function validateAppliedAt(value: unknown): string | null {
     if (value == null || value === "") {
-        return "Applied date must be a valid date.";
+        return null;
     }
 
     if (value instanceof Date) {
@@ -134,6 +147,110 @@ function validateAppliedAt(value: unknown): string | null {
     return null;
 }
 
+function normalizeAppliedAt(value: unknown): string | Date | undefined {
+    if (value == null) {
+        return undefined;
+    }
+
+    if (value instanceof Date) {
+        return value;
+    }
+
+    if (typeof value !== "string") {
+        return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parsePositiveIntegerParam(
+    params: URLSearchParams,
+    key: "page" | "pageSize"
+): { value?: number; error?: string } {
+    const values = params.getAll(key);
+    if (values.length === 0) {
+        return {};
+    }
+
+    if (values.length > 1) {
+        return { error: `${key} must be provided once.` };
+    }
+
+    const value = values[0];
+    if (!/^\d+$/.test(value)) {
+        return { error: `${key} must be a positive integer.` };
+    }
+
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        return { error: `${key} must be a positive integer.` };
+    }
+
+    if (key === "pageSize" && parsed > listQueryLimits.pageSizeMax) {
+        return { error: `pageSize must be ${listQueryLimits.pageSizeMax} or less.` };
+    }
+
+    return { value: parsed };
+}
+
+export function validateJobApplicationListQuery(
+    params: URLSearchParams
+): ValidationResult<JobApplicationListQuery> {
+    const errors: string[] = [];
+    const data: JobApplicationListQuery = {
+        page: listQueryDefaults.page,
+        pageSize: listQueryDefaults.pageSize,
+    };
+
+    const searchValues = params.getAll("search");
+    if (searchValues.length > 1) {
+        errors.push("search must be provided once.");
+    } else if (searchValues.length === 1) {
+        const search = searchValues[0].trim();
+        if (search.length > listQueryLimits.searchMaxLength) {
+            errors.push(`search must be ${listQueryLimits.searchMaxLength} characters or fewer.`);
+        } else if (search.length > 0) {
+            data.search = search;
+        }
+    }
+
+    const statusValues = params.getAll("status");
+    if (statusValues.length > 1) {
+        errors.push("status must be provided once.");
+    } else if (statusValues.length === 1) {
+        const statusRaw = statusValues[0];
+        if (statusRaw) {
+            const status = validateStatus(statusRaw);
+            if (!status) {
+                errors.push("status must be one of APPLIED, INTERVIEW, OFFER, or REJECTED.");
+            } else {
+                data.status = status;
+            }
+        }
+    }
+
+    const page = parsePositiveIntegerParam(params, "page");
+    if (page.error) {
+        errors.push(page.error);
+    } else if (page.value !== undefined) {
+        data.page = page.value;
+    }
+
+    const pageSize = parsePositiveIntegerParam(params, "pageSize");
+    if (pageSize.error) {
+        errors.push(pageSize.error);
+    } else if (pageSize.value !== undefined) {
+        data.pageSize = pageSize.value;
+    }
+
+    if (errors.length > 0) {
+        return { ok: false, errors };
+    }
+
+    return { ok: true, data };
+}
+
 export function validateCreateJobApplicationInput(input: unknown): ValidationResult<JobApplicationCreateInput> {
     if (typeof input !== "object" || input === null) {
         return { ok: false, errors: ["Request body must be an object."] };
@@ -142,8 +259,8 @@ export function validateCreateJobApplicationInput(input: unknown): ValidationRes
     const record = input as Record<string, unknown>;
     const errors: string[] = [];
 
-    const companyError = validateRequiredText(record.company, "Company", 120);
-    const roleError = validateRequiredText(record.role, "Role", 120);
+    const companyError = validateLooseText(record.company, "Company", 120);
+    const roleError = validateLooseText(record.role, "Role", 120);
     const locationError = validateOptionalText(record.location, "Location", 120);
     const jobUrlError = validateUrl(record.jobUrl);
     const notesError = validateOptionalText(record.notes, "Notes", 5000);
@@ -168,12 +285,12 @@ export function validateCreateJobApplicationInput(input: unknown): ValidationRes
     return {
         ok: true,
         data: {
-            company: normalizeText(record.company as string),
-            role: normalizeText(record.role as string),
+            company: record.company === undefined ? undefined : normalizeLooseText(record.company),
+            role: record.role === undefined ? undefined : normalizeLooseText(record.role),
             location: normalizeOptionalText(record.location),
             jobUrl: normalizeOptionalText(record.jobUrl),
             status: status ?? undefined,
-            appliedAt: typeof record.appliedAt === "string" || record.appliedAt instanceof Date ? record.appliedAt : undefined,
+            appliedAt: normalizeAppliedAt(record.appliedAt),
             notes: normalizeOptionalText(record.notes),
         },
     };
@@ -189,15 +306,15 @@ export function validateUpdateJobApplicationInput(input: unknown): ValidationRes
     const data: JobApplicationUpdateInput = {};
 
     if (record.company !== undefined) {
-        const error = validateRequiredText(record.company, "Company", 120);
+        const error = validateLooseText(record.company, "Company", 120);
         if (error) errors.push(error);
-        else data.company = normalizeText(record.company as string);
+        else data.company = normalizeLooseText(record.company);
     }
 
     if (record.role !== undefined) {
-        const error = validateRequiredText(record.role, "Role", 120);
+        const error = validateLooseText(record.role, "Role", 120);
         if (error) errors.push(error);
-        else data.role = normalizeText(record.role as string);
+        else data.role = normalizeLooseText(record.role);
     }
 
     if (record.location !== undefined) {
@@ -221,7 +338,12 @@ export function validateUpdateJobApplicationInput(input: unknown): ValidationRes
     if (record.appliedAt !== undefined) {
         const error = validateAppliedAt(record.appliedAt);
         if (error) errors.push(error);
-        else data.appliedAt = record.appliedAt as string | Date;
+        else {
+            const normalized = normalizeAppliedAt(record.appliedAt);
+            if (normalized !== undefined) {
+                data.appliedAt = normalized;
+            }
+        }
     }
 
     if (record.status !== undefined) {

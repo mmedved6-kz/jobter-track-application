@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Jobter Tracker
 
-## Getting Started
+Jobter Tracker is a Next.js app for tracking job applications with cookie-session auth and an application CRUD API.
 
-First, run the development server:
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API overview
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+All API endpoints return JSON.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Auth APIs
 
-## Learn More
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/api/auth/signup` | Create account and start session |
+| POST | `/api/auth/login` | Sign in and start session |
+| POST | `/api/auth/logout` | Clear session |
+| GET | `/api/auth/me` | Current signed-in user |
 
-To learn more about Next.js, take a look at the following resources:
+### Application CRUD APIs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/applications` | List applications (search/filter/pagination) |
+| POST | `/api/applications` | Create application |
+| GET | `/api/applications/:id` | Fetch one application |
+| PATCH | `/api/applications/:id` | Update one application |
+| DELETE | `/api/applications/:id` | Delete one application |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Application API contract
 
-## Deploy on Vercel
+### Success shape
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```json
+{
+  "ok": true,
+  "data": {}
+}
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Error shape
+
+```json
+{
+  "ok": false,
+  "error": {
+    "message": "Invalid request body.",
+    "code": "INVALID_BODY",
+    "details": []
+  }
+}
+```
+
+`details` is only included when validation errors are present.
+
+## List query params (`GET /api/applications`)
+
+| Param | Type | Notes |
+| --- | --- | --- |
+| `search` | string | Optional, max 120 chars |
+| `status` | enum | Optional: `APPLIED`, `INTERVIEW`, `OFFER`, `REJECTED` |
+| `page` | integer | Optional, default `1`, must be `> 0` |
+| `pageSize` | integer | Optional, default `10`, max `100` |
+
+Invalid query params return `400` with `code: "INVALID_QUERY"`.
+
+## Create/Patch body fields (`POST/PATCH`)
+
+All content fields are optional (Notion-style blank records allowed on create):
+
+| Field | Type |
+| --- | --- |
+| `company` | string (max 120) |
+| `role` | string (max 120) |
+| `location` | string/null (max 120) |
+| `jobUrl` | string/null (http/https URL) |
+| `status` | `APPLIED` \| `INTERVIEW` \| `OFFER` \| `REJECTED` |
+| `appliedAt` | ISO date string or Date |
+| `notes` | string/null (max 5000) |
+
+## Verification scripts
+
+```bash
+npm run test:auth:unit
+npm run test:auth:api
+npm run test:applications:api
+```

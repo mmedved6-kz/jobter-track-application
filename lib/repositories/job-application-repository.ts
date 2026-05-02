@@ -81,8 +81,8 @@ export async function createJobApplication(userId: string, data: JobApplicationC
     return prisma.jobApplication.create({
         data: {
             userId,
-            company: data.company,
-            role: data.role,
+            company: data.company ?? "",
+            role: data.role ?? "",
             location: data.location ?? null,
             jobUrl: data.jobUrl ?? null,
             status: data.status ?? "APPLIED",
